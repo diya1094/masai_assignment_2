@@ -1,111 +1,181 @@
-# SQL Analysis Report – Transaction Data
+# SQL Answers
 
-## 1. Transaction Distribution by Status
+> **Tool Used:** Queries were run using an online SQL tool (sqliteonline.com) by importing `clean_transaction.csv` as a table named `cleaned_transactions`.
 
-The dataset contains transactions categorized into different statuses such as completed, failed, and chargeback. The distribution highlights that the majority of transactions are successfully completed, while a smaller proportion consists of failed and chargeback transactions. This indicates a generally healthy transaction system with some failure and risk cases.
 
----
+## Q1
+### Query
+```sql
+SELECT status, COUNT(*) AS transaction_count
+FROM cleaned_transactions
+GROUP BY status;
+```
+### Result Summary
+The 29 transactions are distributed across 3 statuses:
 
-## 2. Total Captured GMV by Merchant
+| Status | Count |
+|---|---|
+| captured | 18 |
+| chargeback | 4 |
+| failed | 7 |
 
-The Gross Merchandise Value (GMV) for completed transactions was calculated for each merchant.
-
-* **Alpha Mart** generated the highest GMV (~465,432 USD), significantly outperforming others.
-* **Beta Stores** contributed a moderate GMV (~33,482 USD).
-* **Delta Travels** and **City Pharma** showed comparatively lower GMV.
-
-This indicates that Alpha Mart is the dominant revenue contributor in the dataset.
-
----
-
-## 3. Top Merchants by GMV
-
-The top merchants based on captured GMV are:
-
-1. Alpha Mart
-2. Beta Stores
-3. Delta Travels
-4. City Pharma
-
-Since the dataset contains a limited number of merchants, all merchants appear in the top list. Alpha Mart clearly leads by a large margin.
+Captured transactions form the majority (~62%), while chargebacks represent the smallest share (~14%).
 
 ---
 
-## 4. Daily GMV and Successful Transactions
+## Q2
+### Query
+```sql
+SELECT merchant_name, SUM(amount_usd) AS total_gmv
+FROM cleaned_transactions
+WHERE status = 'captured'
+GROUP BY merchant_name;
+```
+### Result Summary
+Total captured GMV per merchant:
 
-Daily analysis of completed transactions shows:
+| Merchant | Total GMV (USD) |
+|---|---|
+| alpha mart | 465,432.50 |
+| beta stores | 33,482.00 |
+| city pharma | 8,720.00 |
+| delta travels | 10,300.00 |
 
-* The highest GMV is observed on **06-03-2026**, indicating a spike in transaction value.
-* Other days show relatively stable but lower GMV values.
-* Successful transaction counts remain fairly consistent across days, suggesting steady transaction volume.
-
-This indicates that while transaction volume is stable, value fluctuations are driven by high-value transactions.
-
----
-
-## 5. Chargeback Ratio by Merchant
-
-Chargeback ratio identifies the proportion of risky transactions per merchant:
-
-* **Eco Home** has the highest ratio (50%), indicating very high risk.
-* **Delta Travels** shows a ratio of 25%, also indicating elevated risk.
-* **Alpha Mart** (~10%) and **Beta Stores** (~9%) have relatively lower but still notable risk levels.
-
-This suggests that Eco Home and Delta Travels require immediate attention for fraud or operational issues.
+Eco Home had no captured transactions (both transactions were chargeback and failed). Alpha Mart dominates captured GMV, largely due to an anomalous exchange rate on T022 (2026-03-06).
 
 ---
 
-## 6. Regional Risk Analysis
+## Q3
+### Query
+```sql
+SELECT merchant_name, SUM(amount_usd) AS total_gmv
+FROM cleaned_transactions
+WHERE status = 'captured'
+GROUP BY merchant_name
+ORDER BY total_gmv DESC
+LIMIT 10;
+```
+### Result Summary
+Ranking of merchants by captured GMV (all 4 active merchants shown):
 
-No region satisfied the condition of:
+1. alpha mart — 465,432.50 USD
+2. beta stores — 33,482.00 USD
+3. delta travels — 10,300.00 USD
+4. city pharma — 8,720.00 USD
 
-* Average risk score > 50
-* AND more than 20 transactions
-
-This is due to the limited size of the dataset. However, it indicates that no region currently meets both high risk and high volume thresholds simultaneously.
-
----
-
-## 7. High-Risk User Behavior
-
-Analysis of users with 3 or more failed or chargeback transactions on the same day revealed:
-
-* **User U008** had 4 such transactions on **05-03-2026**
-
-This indicates potential fraudulent or suspicious activity and highlights the need for monitoring such users.
-
----
-
-## 8. Chargeback Impact by Merchant
-
-Chargeback analysis shows:
-
-* Each merchant experienced at least one chargeback transaction.
-* Chargeback amounts vary significantly:
-
-  * Eco Home (~6588 USD) has the highest financial impact
-  * Alpha Mart (~5445 USD) also shows significant loss
-
-Additionally, each chargeback is associated with a unique user, suggesting isolated incidents rather than repeated fraud by the same user.
+The dataset has only 5 distinct merchants, with alpha mart accounting for over 95% of captured GMV.
 
 ---
 
-## 9. Overall Insights
+## Q4
+### Query
+```sql
+SELECT
+    transaction_date,
+    SUM(amount_usd) AS daily_gmv,
+    COUNT(*) AS successful_transactions
+FROM cleaned_transactions
+WHERE status = 'captured'
+GROUP BY transaction_date
+ORDER BY transaction_date;
+```
+### Result Summary
+Daily captured GMV and transaction counts:
 
-* Alpha Mart dominates revenue but also contributes to chargebacks.
-* Eco Home and Delta Travels are high-risk merchants based on chargeback ratios.
-* Transaction volume is stable across days, but GMV fluctuates due to high-value transactions.
-* Certain users (e.g., U008) exhibit suspicious behavior patterns.
-* Regional analysis is inconclusive due to limited data size.
+| Date | Daily GMV (USD) | Successful Txns |
+|---|---|---|
+| 01-03-2026 | 23,986.00 | 4 |
+| 02-03-2026 | 11,080.00 | 3 |
+| 03-03-2026 | 16,059.50 | 4 |
+| 04-03-2026 | 13,894.00 | 4 |
+| 05-03-2026 | 6,188.00 | 1 |
+| 06-03-2026 | 446,727.00 | 2 |
+
+The spike on 06-03-2026 is caused by T022 (Alpha Mart, INR) receiving an incorrect exchange rate of 1.08 instead of ~0.0119, inflating the USD amount to 442,800.
 
 ---
 
-## 10. Conclusion
+## Q5
+### Query
+```sql
+SELECT
+    merchant_name,
+    SUM(CASE WHEN status = 'chargeback' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS chargeback_ratio
+FROM cleaned_transactions
+GROUP BY merchant_name
+HAVING chargeback_ratio > 0.01;
+```
+### Result Summary
+All merchants except City Pharma exceed the 1% threshold:
 
-The analysis highlights key business insights:
+| Merchant | Chargeback Ratio |
+|---|---|
+| alpha mart | 0.1 (10.00%) |
+| beta stores | 0.0909090909090909091 (~9.09%) |
+| delta travels | 0.25 (25.00%) |
+| eco home | 0.5 (50.00%) |
 
-* Revenue concentration is skewed towards a few merchants.
-* Risk is unevenly distributed, with some merchants showing significantly higher chargeback ratios.
-* Monitoring high-risk users and merchants can help reduce financial losses.
+Eco Home and Delta Travels carry the highest chargeback risk and warrant immediate review.
 
-Overall, the dataset demonstrates the importance of combining transaction volume, value, and risk metrics to make informed business decisions.
+---
+
+## Q6
+### Query
+```sql
+SELECT
+    gateway_region,
+    AVG(risk_score) AS avg_risk,
+    COUNT(*) AS total_txns
+FROM cleaned_transactions
+GROUP BY gateway_region
+HAVING AVG(risk_score) > 50 AND COUNT(*) > 20;
+```
+### Result Summary
+**No rows returned.**
+
+The dataset contains only 29 transactions in total. No single region has more than 20 transactions, so the `COUNT(*) > 20` condition eliminates all groups. This query would yield meaningful results on a larger production dataset.
+
+---
+
+## Q7
+### Query
+```sql
+SELECT
+    user_id,
+    transaction_date,
+    COUNT(*) AS txn_count
+FROM cleaned_transactions
+WHERE status IN ('failed', 'chargeback')
+GROUP BY user_id, transaction_date
+HAVING COUNT(*) >= 3;
+```
+### Result Summary
+| User ID | Date | Txn Count |
+|---|---|---|
+| U008 | 05-03-2026 | 4 |
+
+User U008 had 4 failed/chargeback transactions on 05-03-2026 (T016, T017, T018, T019), indicating potentially suspicious or fraudulent behaviour requiring investigation.
+
+---
+
+## Q8
+### Query
+```sql
+SELECT
+    merchant_name,
+    COUNT(*) AS chargeback_count,
+    COUNT(DISTINCT user_id) AS unique_users,
+    SUM(amount_usd) AS chargeback_amount
+FROM cleaned_transactions
+WHERE status = 'chargeback'
+GROUP BY merchant_name;
+```
+### Result Summary
+| Merchant | Chargeback Count | Unique Users | Chargeback Amount (USD) |
+|---|---|---|---|
+| alpha mart | 1 | 1 | 5,445.00 |
+| beta stores | 1 | 1 | 1,711.00 |
+| delta travels | 1 | 1 | 2,500.00 |
+| eco home | 1 | 1 | 6,588.00 |
+
+Each chargeback involves a distinct user, suggesting isolated incidents rather than repeated fraud by the same user. Eco Home carries the highest single chargeback financial exposure.

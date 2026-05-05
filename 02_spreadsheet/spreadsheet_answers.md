@@ -1,79 +1,83 @@
-# Data Cleaning and Transformation Summary
+# Spreadsheet Answers
 
-## 1. Data Cleaning
+## Cleaning Steps
 
-The raw transaction dataset was cleaned by removing duplicate records and handling inconsistent formatting. Text fields such as merchant names, status, and regions were trimmed to remove extra spaces and standardized for consistency. Missing and invalid values in numerical fields like risk scores were converted into proper numeric format.
-
----
-
-## 2. Standardization
-
-### Merchant Names
-
-Merchant names were standardized by converting them to lowercase and removing extra spaces to ensure consistent matching across datasets.
-
-### Status Values
-
-All status values were normalized to lowercase.
-
-### Risk Scores
-
-Risk scores were converted into numeric values, and invalid entries were handled to ensure accurate calculations.
-
-### Gateway Regions
-
-Gateway regions were standardized into lower case.
----
-
-## 3. Currency Conversion
-
-Transaction amounts were converted into a single reporting currency (USD).
-This was achieved by joining the transactions dataset with the exchange rates dataset using a composite key of `transaction_date` and `currency`. The USD amount was calculated by multiplying the raw amount with the corresponding exchange rate.
+* Removed duplicate records from the raw dataset.
+* Trimmed extra spaces from all text fields such as merchant_name, status, and gateway_region.
+* Standardized text casing (converted to lowercase/uppercase where required).
+* Converted date column into a consistent date format.
+* Handled missing and invalid values in risk_score by converting them to numeric and replacing errors with 0.
+* Ensured all columns were in correct data types for further processing.
 
 ---
 
-## 4. Data Enrichment
+## Standardization Rules
 
-The transactions dataset was enriched using the merchant master dataset by matching standardized merchant names. This ensured consistency and allowed better aggregation at the merchant level.
-
----
-
-## 5. Feature Engineering
-
-### High Value Flag
-
-A `high_value_flag` was created based on region-specific thresholds:
-
-* APAC: amount_usd > 5000
-* EU: amount_usd > 6000
-* US: amount_usd > 7000
-
-### High Risk Flag
-
-A `high_risk_flag` was assigned when:
-
-* risk_score ≥ 70, OR
-* transaction status contains "chargeback"
+* **Merchant Name:** Converted to lowercase and trimmed spaces for consistency.
+* **Status:** Standardized into consistent categories such as `captured`, `failed`, and `chargeback`.
+* **Risk Score:** Converted to numeric values and cleaned invalid entries.
+* **Gateway Region:** Standardized into `APAC`, `EU`, and `US`.
+* **Date Format:** Converted into a consistent format for accurate analysis.
 
 ---
 
-## 6. Merchant Risk Summary
+## Lookup and Enrichment Logic
 
-A summary dataset was created using aggregation at the merchant level. The following metrics were calculated:
-
-* Total transaction amount in USD
-* Total high value transactions
-* Total high risk transactions
-
-This summary provides insights into merchant performance and risk exposure.
+* Used exchange_rates dataset to convert transaction amounts into USD using currency and date as keys.
+* Created a composite key (date + currency) to accurately map exchange rates.
+* Enriched transactions using merchant_master dataset based on standardized merchant names.
+* Calculated `amount_usd` by multiplying raw_amount with exchange_rate.
 
 ---
 
-## 7. Final Output
+## Final Answers
 
-Two final output files were generated:
+* **Total raw rows:** 25
+* **Total cleaned rows:** 25
+* **Invalid or missing rows handled:** 0 (no rows removed, only cleaned/transformed)
+* **Top region by GMV:** APAC
+* **Number of high value transactions:** 7
+* **Number of high risk transactions:** 6
+* **Top merchant by captured GMV:** Alpha Mart
 
-* `cleaned_transactions.csv` containing the cleaned and enriched transaction data
-* `merchant_risk_summary.csv` containing aggregated merchant-level insights
+---
 
-All intermediate helper columns used during processing were removed to ensure the final dataset is clean, structured, and analysis-ready.
+## Formula Samples
+
+* **Trim and clean text:**
+
+  ```excel
+  =LOWER(TRIM(A2))
+  ```
+
+* **Date conversion:**
+
+  ```excel
+  =DATEVALUE(A2)
+  ```
+
+* **Exchange rate lookup:**
+
+  ```excel
+  =XLOOKUP(key, exchange_rates!D:D, exchange_rates!C:C)
+  ```
+
+* **Amount in USD:**
+
+  ```excel
+  =raw_amount * exchange_rate
+  ```
+
+* **High Value Flag:**
+
+  ```excel
+  =IF(AND(region="APAC", amount_usd>5000),1,
+   IF(AND(region="EU", amount_usd>6000),1,
+   IF(AND(region="US", amount_usd>7000),1,0)))
+  ```
+
+* **High Risk Flag:**
+
+  ```excel
+  =IF(OR(risk_score>=70, ISNUMBER(SEARCH("chargeback", status))),1,0)
+  ```
